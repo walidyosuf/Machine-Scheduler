@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام تخطيط الماكينات - Machine Scheduler</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.3/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root { --primary: #2563eb; --bg: #f8fafc; --card: #ffffff; --border: #e2e8f0; --text: #1e293b; --text-light: #64748b; --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; }
+        .container { max-width: 1400px; margin: 0 auto; background: var(--card); padding: 25px; border-radius: 12px; box-shadow: var(--shadow); }
+        h1, h2 { margin-bottom: 20px; color: var(--text); border-bottom: 2px solid var(--border); padding-bottom: 10px; }
+        h1 { text-align: center; color: var(--primary); }
+        .lang-toggle { position: fixed; top: 20px; left: 20px; z-index: 1000; }
+        .lang-btn { background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .date-picker-box { background: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #bae6fd; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+        .date-picker-box label { font-weight: 600; color: var(--primary); }
+        .date-picker-box input { padding: 8px; border: 1px solid var(--border); border-radius: 6px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-size: 0.9rem; color: var(--text-light); margin-bottom: 5px; font-weight: 500; }
+        .form-group input, .form-group select { padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95rem; transition: 0.2s; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        .form-group input[readonly] { background: #f1f5f9; cursor: not-allowed; }
+        .dates-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; }
+        .dates-grid .form-group input { text-align: center; }
+        .btn-group { display: flex; gap: 10px; justify-content: center; margin-bottom: 30px; flex-wrap: wrap; }
+        button { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+        .btn-add { background: var(--primary); color: white; } .btn-add:hover { background: #1d4ed8; }
+        .btn-clear { background: #ef4444; color: white; } .btn-clear:hover { background: #b91c1c; }
+        .btn-export { background: #10b981; color: white; } .btn-export:hover { background: #059669; }
+        .btn-pdf { background: #f59e0b; color: white; } .btn-pdf:hover { background: #d97706; }
+        .btn-print { background: #6366f1; color: white; } .btn-print:hover { background: #4f46e5; }
+        .table-wrapper { overflow-x: auto; margin-bottom: 30px; border-radius: 8px; border: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+        th, td { padding: 10px; text-align: center; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+        th { background: #f1f5f9; font-weight: 600; color: var(--text); position: sticky; top: 0; }
+        tr:hover { background: #f8fafc; }
+        .action-btn { background: #ef4444; color: white; padding: 5px 10px; font-size: 0.8rem; border-radius: 4px; border: none; cursor: pointer; }
+        .action-btn:hover { background: #b91c1c; }
+        .gantt-wrapper { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 20px; }
+        .gantt-header { display: grid; grid-template-columns: 300px repeat(6, 1fr); border-bottom: 2px solid var(--border); margin-bottom: 5px; }
+        .gantt-header div { padding: 8px; text-align: center; font-weight: 600; font-size: 0.85rem; background: #f8fafc; border-right: 1px solid var(--border); }
+        .gantt-row { display: grid; grid-template-columns: 300px repeat(6, 1fr); min-height: 50px; align-items: center; border-bottom: 1px dashed var(--border); }
+        .gantt-task { padding: 8px; font-size: 0.85rem; border-left: 1px solid var(--border); display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+        .gantt-task span { font-weight: 700; }
+        .gantt-task small { color: var(--text-light); font-size: 0.75rem; }
+        .gantt-day-cell { display: flex; align-items: center; justify-content: center; min-height: 36px; border-right: 1px solid var(--border); padding: 4px; }
+        .gantt-daily-bar { height: 32px; border-radius: 16px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.3s; box-shadow: 0 3px 6px rgba(0,0,0,0.15); }
+        .gantt-daily-bar:hover { transform: scale(1.05); filter: brightness(0.9); }
+        .empty-msg { text-align: center; padding: 40px; color: var(--text-light); font-style: italic; }
+        @media print { .no-print { display: none !important; } .container { box-shadow: none; } body { background: white; padding: 0; } }
+        @media (max-width: 768px) { .dates-grid { grid-template-columns: repeat(3, 1fr); } .form-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<button class="lang-toggle lang-btn no-print" onclick="toggleLanguage()">English</button>
+
+<div class="container">
+    <h1 data-key="title">📅 نظام تخطيط الماكينات</h1>
+    
+    <div class="date-picker-box no-print">
+        <label data-key="startDate">📅 تاريخ البداية:</label>
+        <input type="date" id="startDate" onchange="updateDates()">
+        <small style="color: var(--text-light);" data-key="dateNote">سيتم توليد 6 أيام تلقائياً من التاريخ المحدد</small>
+    </div>
+    
+    <form id="taskForm" class="no-print">
+        <div class="form-grid">
+            <div class="form-group"><label data-key="machine">الماكينة</label>
+                <select id="machine" required><option value="">اختر الماكينة...</option>
+                <option value="206">206</option><option value="20.20">20.20</option>
+                <option value="10.10">10.10</option><option value="P83E">P83E</option></select>
+            </div>
+            <div class="form-group"><label data-key="project">المشروع</label><input type="text" id="project" placeholder="مثال: EMDAD" required></div>
+            <div class="form-group"><label data-key="wo">رقم أمر العمل</label><input type="text" id="wo" placeholder="اختياري"></div>
+            <div class="form-group"><label data-key="description">الوصف</label><input type="text" id="description" placeholder="مثال: 210xS2 Stubs" required></div>
+            <div class="form-group"><label data-key="profile">البروفايل</label><input type="text" id="profile" placeholder="مثال: L120x11" required></div>
+            <div class="form-group"><label data-key="notes">الملاحظات</label><input type="text" id="notes" placeholder="اختياري"></div>
+        </div>
+
+        <label style="display:block; margin-bottom:10px; font-weight:500;" data-key="dailyQty">📊 كميات الإنتاج اليومية:</label>
+        <div class="dates-grid" id="datesContainer">
+            <div class="empty-msg" data-key="selectDate">الرجاء اختيار تاريخ البداية أولاً</div>
+        </div>
+
+        <div class="form-group" style="max-width: 200px; margin: 0 auto 20px;">
+            <label data-key="total">المجموع الكلي</label><input type="number" id="total" readonly step="0.01" value="0">
+        </div>
+
+        <div class="btn-group">
+            <button type="submit" class="btn-add" data-key="addBtn">➕ إضافة للجدول</button>
+            <button type="button" class="btn-clear" onclick="clearAll()" data-key="clearBtn">🗑️ مسح الكل</button>
+            <button type="button" class="btn-export" onclick="exportToExcel()" data-key="exportExcel">📊 تصدير Excel</button>
+            <button type="button" class="btn-pdf" onclick="exportToPDF()" data-key="exportPDF">📄 تصدير PDF</button>
+            <button type="button" class="btn-print" onclick="window.print()" data-key="printBtn">🖨️ طباعة</button>
+        </div>
+    </form>
+
+    <h2 data-key="taskTable">📋 جدول المهام</h2>
+    <div class="table-wrapper" id="tableWrapper">
+        <table id="scheduleTable">
+            <thead><tr>
+                <th data-key="id">ID</th><th data-key="machine">الماكينة</th><th data-key="project">المشروع</th><th data-key="wo">WO</th>
+                <th data-key="description">الوصف</th><th data-key="profile">البروفايل</th>
+                <th id="th-d1">يوم 1</th><th id="th-d2">يوم 2</th><th id="th-d3">يوم 3</th>
+                <th id="th-d4">يوم 4</th><th id="th-d5">يوم 5</th><th id="th-d6">يوم 6</th>
+                <th data-key="total">المجموع</th><th data-key="notes">الملاحظات</th><th class="no-print" data-key="action">إجراء</th>
+            </tr></thead>
+            <tbody id="tableBody"><tr><td colspan="15" class="empty-msg" data-key="noTasks">لا توجد مهام مضافة بعد</td></tr></tbody>
+        </table>
+    </div>
+
+    <h2 data-key="ganttChart">📊 مخطط جانت</h2>
+    <div id="ganttContainer" class="gantt-wrapper">
+        <div class="empty-msg" data-key="addTasks">أضف مهام لعرض المخطط الزمني</div>
+    </div>
+</div>
+
+<script>
+    const translations = {
+        ar: { title: '📅 نظام تخطيط الماكينات', startDate: '📅 تاريخ البداية:', dateNote: 'سيتم توليد 6 أيام تلقائياً من التاريخ المحدد', machine: 'الماكينة', project: 'المشروع', wo: 'رقم أمر العمل', description: 'الوصف', profile: 'البروفايل', notes: 'الملاحظات', dailyQty: '📊 كميات الإنتاج اليومية:', selectDate: 'الرجاء اختيار تاريخ البداية أولاً', total: 'المجموع الكلي', addBtn: '➕ إضافة للجدول', clearBtn: '🗑️ مسح الكل', exportExcel: '📊 تصدير Excel', exportPDF: '📄 تصدير PDF', printBtn: '🖨️ طباعة', taskTable: '📋 جدول المهام', id: 'ID', action: 'إجراء', noTasks: 'لا توجد مهام مضافة بعد', ganttChart: '📊 مخطط جانت', addTasks: 'أضف مهام لعرض المخطط الزمني', delete: 'حذف', noData: 'لا توجد بيانات للتصدير' },
+        en: { title: '📅 Machine Scheduler', startDate: '📅 Start Date:', dateNote: '6 consecutive days will be generated automatically', machine: 'Machine', project: 'Project', wo: 'Work Order', description: 'Description', profile: 'Profile', notes: 'Notes', dailyQty: '📊 Daily Production Quantities:', selectDate: 'Please select a start date first', total: 'Total', addBtn: '➕ Add to Schedule', clearBtn: '🗑️ Clear All', exportExcel: '📊 Export Excel', exportPDF: '📄 Export PDF', printBtn: '🖨️ Print', taskTable: '📋 Task Schedule', id: 'ID', action: 'Action', noTasks: 'No tasks added yet', ganttChart: '📊 Gantt Chart', addTasks: 'Add tasks to display Gantt chart', delete: 'Delete', noData: 'No data to export' }
+    };
+    let currentLang = 'ar';
+    let DATES = [];
+    let tasks = [];
+    let idCounter = 1;
+    const projectColors = {};
+    const colorPalette = ['#2563eb', '#7c3aed', '#059669', '#d97706', '#dc2626', '#0891b2', '#7c2d12', '#4338ca', '#be185d', '#047857'];
+    let colorIndex = 0;
+
+    function getProjectColor(project) {
+        if (!projectColors[project]) { projectColors[project] = colorPalette[colorIndex % colorPalette.length]; colorIndex++; }
+        return projectColors[project];
+    }
+    function toggleLanguage() {
+        currentLang = currentLang === 'ar' ? 'en' : 'ar';
+        document.documentElement.lang = currentLang;
+        document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+        document.querySelector('.lang-btn').textContent = currentLang === 'ar' ? 'English' : 'عربي';
+        document.querySelectorAll('[data-key]').forEach(el => { if(translations[currentLang][el.dataset.key]) el.textContent = translations[currentLang][el.dataset.key]; });
+    }
+
+    function updateDates() {
+        const startVal = document.getElementById('startDate').value;
+        if (!startVal) return;
+        const startDate = new Date(startVal);
+        DATES = [];
+        for(let i=0; i<6; i++) { const d=new Date(startDate); d.setDate(startDate.getDate()+i); DATES.push(d.toLocaleDateString('en-GB')); }
+        
+        const container = document.getElementById('datesContainer');
+        container.innerHTML = '';
+        DATES.forEach((date, idx) => {
+            container.innerHTML += `<div class="form-group"><label>${currentLang==='ar'?'يوم':'Day'} ${idx+1}<br><small style="color:#64748b">${date}</small></label><input type="number" step="0.01" min="0" class="daily-qty" data-idx="${idx}" oninput="calcTotal()"></div>`;
+            const th = document.getElementById(`th-d${idx+1}`); if(th) th.textContent = date;
+        });
+        if(tasks.length > 0) renderGantt();
+    }
+
+    function calcTotal() { let sum=0; document.querySelectorAll('.daily-qty').forEach(inp=>sum+=parseFloat(inp.value)||0); document.getElementById('total').value=sum.toFixed(2); }
+
+    document.getElementById('taskForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        if(DATES.length===0) { alert(translations[currentLang].selectDate); return; }
+        const dailyValues=[]; document.querySelectorAll('.daily-qty').forEach(inp=>dailyValues.push(parseFloat(inp.value)||0));
+        const project = document.getElementById('project').value;
+        tasks.push({ id:idCounter++, machine:document.getElementById('machine').value, project:project, wo:document.getElementById('wo').value, desc:document.getElementById('description').value, profile:document.getElementById('profile').value, dates:dailyValues, total:parseFloat(document.getElementById('total').value), notes:document.getElementById('notes').value, color:getProjectColor(project) });
+        renderTable(); renderGantt(); this.reset(); calcTotal();
+    });
+
+    function renderTable() {
+        const tbody = document.getElementById('tableBody');
+        if(tasks.length===0) { tbody.innerHTML=`<tr><td colspan="15" class="empty-msg">${translations[currentLang].noTasks}</td></tr>`; return; }
+        tbody.innerHTML = tasks.map(t=>`<tr><td>${t.id}</td><td><strong>${t.machine}</strong></td><td>${t.project}</td><td>${t.wo}</td><td>${t.desc}</td><td>${t.profile}</td>${t.dates.map(d=>`<td>${d||'-'}</td>`).join('')}<td><strong>${t.total}</strong></td><td>${t.notes}</td><td class="no-print"><button class="action-btn" onclick="deleteTask(${t.id})">${translations[currentLang].delete}</button></td></tr>`).join('');
+    }
+    function deleteTask(id) { tasks=tasks.filter(t=>t.id!==id); renderTable(); renderGantt(); }
+    function clearAll() { if(confirm(currentLang==='ar'?'هل أنت متأكد من مسح جميع البيانات؟':'Are you sure you want to clear all data?')) { tasks=[]; renderTable(); renderGantt(); } }
+
+    function renderGantt() {
+        const container = document.getElementById('ganttContainer');
+        if(tasks.length===0) { container.innerHTML=`<div class="empty-msg">${translations[currentLang].addTasks}</div>`; return; }
+        let maxQty=0; tasks.forEach(t=>t.dates.forEach(d=>{if(d>maxQty)maxQty=d;})); if(maxQty===0) maxQty=1;
+        let html=`<div class="gantt-header"><div>${currentLang==='ar'?'المشروع / الماكينة':'Project / Machine'}</div>${DATES.map(d=>`<div>${d}</div>`).join('')}</div>`;
+        tasks.forEach(t=>{
+            let dayCells='';
+            t.dates.forEach((qty,idx)=>{
+                if(qty>0) { let w=Math.max(15,(qty/maxQty)*100); dayCells+=`<div class="gantt-day-cell"><div class="gantt-daily-bar" style="width:${w}%;background:${t.color}" title="${currentLang==='ar'?'مشروع':'Project'}: ${t.project}\n${currentLang==='ar'?'ماكينة':'Machine'}: ${t.machine}\n${currentLang==='ar'?'كمية':'Qty'}: ${qty}">${qty}</div></div>`; }
+                else dayCells+=`<div class="gantt-day-cell"></div>`;
+            });
+            html+=`<div class="gantt-row"><div class="gantt-task"><span style="color:${t.color}">${t.project}</span><small>${t.machine} | ${t.desc}</small></div>${dayCells}</div>`;
+        });
+        container.innerHTML=html;
+    }
+
+    function exportToExcel() {
+        if(tasks.length===0) { alert(translations[currentLang].noData); return; }
+        const wb=XLSX.utils.book_new();
+        const tableData=tasks.map(t=>({ ID:t.id, [currentLang==='ar'?'الماكينة':'Machine']:t.machine, [currentLang==='ar'?'المشروع':'Project']:t.project, WO:t.wo, [currentLang==='ar'?'الوصف':'Description']:t.desc, [currentLang==='ar'?'البروفايل':'Profile']:t.profile, ...DATES.reduce((a,d,i)=>{a[d]=t.dates[i]||''; return a;},{}), [currentLang==='ar'?'المجموع':'Total']:t.total, [currentLang==='ar'?'الملاحظات':'Notes']:t.notes }));
+        const ws=XLSX.utils.json_to_sheet(tableData); XLSX.utils.book_append_sheet(wb, ws, currentLang==='ar'?'الجدول':'Schedule');
+        XLSX.writeFile(wb, `Schedule_${new Date().toISOString().split('T')[0]}.xlsx`);
+    }
+
+    async function exportToPDF() {
+        if(tasks.length===0) { alert(translations[currentLang].noData); return; }
+        const {jsPDF}=window.jspdf; const doc=new jsPDF({orientation:'landscape', unit:'mm', format:'a4'});
+        doc.setFontSize(16); doc.text(currentLang==='ar'?'نظام تخطيط الماكينات':'Machine Scheduler', 148, 15, {align:'center'});
+        doc.setFontSize(10); doc.text(`${currentLang==='ar'?'تاريخ البداية':'Start Date'}: ${document.getElementById('startDate').value || '-'}`, 148, 22, {align:'center'});
+        const cols=[currentLang==='ar'?'م':'ID', currentLang==='ar'?'الماكينة':'Machine', currentLang==='ar'?'المشروع':'Project', 'WO', currentLang==='ar'?'الوصف':'Description', currentLang==='ar'?'البروفايل':'Profile', ...DATES, currentLang==='ar'?'المجموع':'Total', currentLang==='ar'?'الملاحظات':'Notes'];
+        const rows=tasks.map(t=>[t.id, t.machine, t.project, t.wo, t.desc, t.profile, ...t.dates.map(d=>d||''), t.total, t.notes]);
+        doc.autoTable({head:[cols], body:rows, startY:30, styles:{fontSize:8, cellPadding:2}, headStyles:{fillColor:[37,99,235]}});
+        try {
+            const canvas=await html2canvas(document.getElementById('ganttContainer'), {scale:2});
+            const imgData=canvas.toDataURL('image/png'); const imgProps=doc.getImageProperties(imgData);
+            const w=doc.internal.pageSize.getWidth()-20; const h=(imgProps.height*w)/imgProps.width;
+            doc.addPage(); doc.setFontSize(14); doc.text(currentLang==='ar'?'مخطط جانت':'Gantt Chart', 148, 15, {align:'center'}); doc.addImage(imgData, 'PNG', 10, 20, w, h);
+        } catch(e) { console.error(e); }
+        doc.save(`Schedule_${new Date().toISOString().split('T')[0]}.pdf`);
+    }
+</script>
+</body>
+</html>
